@@ -57,6 +57,8 @@ def makeAlphaMaskedImage(baseImg, maskImg, newImgName = ""):
     resultPixs = list(baseImgCpy.pixels)
     maskPix = list(maskImgCpy.pixels)
     
+    #expecting image pixel data to go R, G, B, A, R, G, B...
+    #this means element 3 (fourth element) is the first A
     for i in range(3, len(resultPixs), 4):
         resultPixs[i] = maskPix[i - 1] #mask should be grayscale, so any of the previous 3 should be fine
     
