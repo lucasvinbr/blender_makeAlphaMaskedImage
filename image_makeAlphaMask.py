@@ -172,6 +172,7 @@ def unregister():
         
     del Scene.alphaMaskImg
     del Scene.alphaMaskImgResultName
+    del Scene.alphaMaskSourceImgChannel
 
 if __name__ == "__main__":
     register()
