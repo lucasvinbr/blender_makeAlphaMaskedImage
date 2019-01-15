@@ -22,7 +22,7 @@ bl_info = {
     "name": "Make Alpha Masked Image",
     "category": "Image",
     "author": "lucasvinbr (lucasvinbr@gmail.com)",
-    "version": "0.1",
+    "version": "0.2",
     "location": "Image Editor > Tools > Misc > Make Alpha Masked Copy",
     "description": "Makes a copy of currently displayed Image using another one as its alpha channel",
 }
@@ -30,14 +30,15 @@ bl_info = {
 
 from bpy.props import (                    
                        StringProperty,
-                       PointerProperty)
+                       PointerProperty,
+                       EnumProperty)
 
 from bpy.types import (Operator,
                        Panel,
                        Scene
                        )
 
-def makeAlphaMaskedImage(baseImg, maskImg, newImgName = ""):
+def makeAlphaMaskedImage(baseImg, maskImg, newImgName = "", channelAsNewAlpha = "B"):
     D = bpy.data
     
     #make duplicates of base and mask images since we'll be scaling them
@@ -57,10 +58,20 @@ def makeAlphaMaskedImage(baseImg, maskImg, newImgName = ""):
     resultPixs = list(baseImgCpy.pixels)
     maskPix = list(maskImgCpy.pixels)
     
+    #the decrement sets which channel of the mask image we'll be applying as alpha.
+    #0 -> A, 1 -> B, 2 -> G ...
+    channelPickedDecrement = 0
+    if channelAsNewAlpha == "B":
+        channelPickedDecrement = 1
+    elif channelAsNewAlpha == "G":
+        channelPickedDecrement = 2
+    elif channelAsNewAlpha == "R":
+        channelPickedDecrement = 3
+    
     #expecting image pixel data to go R, G, B, A, R, G, B...
     #this means element 3 (fourth element) is the first A
     for i in range(3, len(resultPixs), 4):
-        resultPixs[i] = maskPix[i - 1] #mask should be grayscale, so any of the previous 3 should be fine
+        resultPixs[i] = maskPix[i - channelPickedDecrement]
     
     baseImgCpy.pixels = resultPixs
     
@@ -87,8 +98,10 @@ class MakeAlphaMaskedCopyOp(Operator):
         curScene = context.scene
         if curScene.alphaMaskImg is None:
             self.report({"ERROR_INVALID_INPUT"},"Alpha Mask Image not specified")
+        elif curScene.alphaMaskSourceImgChannel is None:
+            self.report({"ERROR_INVALID_INPUT"},"Alpha Mask Channel not specified")
         else:
-            makeAlphaMaskedImage(sima.image, curScene.alphaMaskImg, curScene.alphaMaskImgResultName)
+            makeAlphaMaskedImage(sima.image, curScene.alphaMaskImg, curScene.alphaMaskImgResultName, curScene.alphaMaskSourceImgChannel)
         
         
         return {'FINISHED'}
@@ -122,6 +135,9 @@ class MakeAlphaMaskedCopyPanel(Panel):
         row.prop(curScene, "alphaMaskImgResultName")
         
         row = layout.row()
+        row.prop(curScene, "alphaMaskSourceImgChannel")
+        
+        row = layout.row()
         row.operator("image.make_masked_operator", "Create Masked Copy")
 
 #--------------
@@ -141,7 +157,13 @@ def register():
     Scene.alphaMaskImg = PointerProperty(type=bpy.types.Image, name="Alpha Mask Image", description="File used as Alpha Mask in the Make Alpha Mask Addon")
     
     Scene.alphaMaskImgResultName = StringProperty(name="Resulting Image Name", description="Name of the image created as result of the masking. If empty, the resulting image will have the name of the base file with a suffix", maxlen=255)
-
+    Scene.alphaMaskSourceImgChannel = EnumProperty(items=(("R", "R", "The Mask's Red channel will be used as alpha for the resulting image"),
+        ("G", "G", "The Mask's Green channel will be used as alpha for the resulting image"),
+        ("B", "B", "The Mask's Blue channel will be used as alpha for the resulting image"),
+        ("A", "A", "The Mask's Alpha channel will be used as alpha for the resulting image")), 
+    name="Channel Used for Masking", 
+    description="Which of the color channels (R,G,B,A) will be used from the Mask Image?",
+    default = "B")
 
 def unregister():
     from bpy.utils import unregister_class
